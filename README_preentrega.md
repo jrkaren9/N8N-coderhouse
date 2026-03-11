@@ -15,7 +15,7 @@ El workflow se dispara a través de un **Webhook** que recibe una solicitud HTTP
 {
   "body": {
     "name": "Karen",
-    "email": "karen.justo@hotmail.com",
+    "email": "jrkaren9@nomail.com",
     "words": ["hello", "incredible"]
   }
 }
