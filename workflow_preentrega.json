@@ -1,0 +1,444 @@
+{
+  "name": "Pre-entrega",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8b301ba5-dbe9-40ea-84f4-82b1291b2d22",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -992,
+        0
+      ],
+      "id": "6d2be52e-b73a-476f-b45f-7f07c0c2555e",
+      "name": "Webhook",
+      "webhookId": "8b301ba5-dbe9-40ea-84f4-82b1291b2d22"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.words",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        176,
+        48
+      ],
+      "id": "1a2a9580-9c5a-443d-bfef-ed1965c0af27",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.name }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "empty",
+                      "singleValue": true
+                    },
+                    "id": "aa74afc3-7fda-4e48-83f5-56f55aec278c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bad name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bccbc934-a4da-4925-953a-3319eb52700a",
+                    "leftValue": "={{ $json.body.email }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "empty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bad email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "dca09da4-ed27-4cfd-a965-46acaa42c080",
+                    "leftValue": "={{ $json.body.words }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "array",
+                      "operation": "empty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "No words"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bd683ca2-8389-49cc-bec9-3aa89415c395",
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -752,
+        -32
+      ],
+      "id": "fbb88971-aff4-4df6-839b-0d1918189dd7",
+      "name": "Handle input"
+    },
+    {
+      "parameters": {
+        "url": "=https://freedictionaryapi.com/api/v1/entries/en/{{ $json['body.words'] }}?translations=true",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        400,
+        48
+      ],
+      "id": "aa605e0f-c3b2-4150-9a65-972f8799e447",
+      "name": "Wiktionary"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function uniquePreserveOrder(values) {\n  const seen = new Set();\n  const result = [];\n\n  for (const value of values) {\n    if (value && !seen.has(value)) {\n      seen.add(value);\n      result.push(value);\n    }\n  }\n\n  return result;\n}\n\nfunction limitList(values, max = 8) {\n  if (values.length <= max) return values;\n  return [...values.slice(0, max), '...'];\n}\n\nfunction escapeHtml(text) {\n  return String(text ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;')\n    .replace(/'/g, '&#39;');\n}\n\nconst data = $input.item.json;\n\nconst word = data.word ?? '';\nconst entries = data.entries ?? [];\n\nlet senseCounter = 1;\nconst sections = [];\n\nfor (const entry of entries) {\n  const partOfSpeech = entry.partOfSpeech ?? '-';\n  const senses = entry.senses ?? [];\n\n  if (!senses.length) {\n    sections.push(`\n      <div style=\"margin-bottom:16px;\">\n        <div style=\"font-weight:700; margin-bottom:6px;\">${senseCounter}. No definition available</div>\n        <div><strong>Part of speech:</strong> ${escapeHtml(partOfSpeech)}</div>\n        <div><strong>Korean:</strong> -</div>\n        <div><strong>Spanish:</strong> -</div>\n      </div>\n    `);\n    senseCounter++;\n    continue;\n  }\n\n  for (const sense of senses) {\n    const definition = sense.definition ?? 'No definition available';\n\n    let translations = sense.translations ?? [];\n    if (!translations.length) {\n      translations = entry.translations ?? [];\n    }\n\n    const koreanWords = [];\n    const spanishWords = [];\n\n    for (const tr of translations) {\n      const code = tr.language?.code ?? '';\n      const translatedWord = tr.word ?? '';\n\n      if (code === 'ko' && translatedWord) koreanWords.push(translatedWord);\n      if (code === 'es' && translatedWord) spanishWords.push(translatedWord);\n    }\n\n    const uniqueKorean = limitList(uniquePreserveOrder(koreanWords), 6);\n    const uniqueSpanish = limitList(uniquePreserveOrder(spanishWords), 8);\n\n    sections.push(`\n      <div style=\"margin-bottom:16px;\">\n        <div style=\"font-weight:700; margin-bottom:6px;\">\n          ${senseCounter}. ${escapeHtml(definition)}\n        </div>\n        <div><strong>Part of speech:</strong> ${escapeHtml(partOfSpeech)}</div>\n        <div><strong>Korean:</strong> ${uniqueKorean.length ? escapeHtml(uniqueKorean.join(', ')) : '-'}</div>\n        <div><strong>Spanish:</strong> ${uniqueSpanish.length ? escapeHtml(uniqueSpanish.join(', ')) : '-'}</div>\n      </div>\n    `);\n\n    senseCounter++;\n  }\n}\n\nconst formatted_html = `\n  <div style=\"margin-bottom:28px;\">\n    <h2 style=\"margin:0 0 14px 0; font-size:22px;\">Word: ${escapeHtml(word)}</h2>\n    ${sections.join('')}\n  </div>\n`;\n\nreturn {\n  json: {\n    word,\n    formatted_html,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        48
+      ],
+      "id": "b9fbe1ea-f09f-4208-8549-08e0cfa099a4",
+      "name": "Process results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const blocks = $input.all()\n  .map(item => item.json.formatted_html)\n  .filter(Boolean);\n\nconst original = $('Obtain data').first().json;\nconst name = original.body?.name ?? '';\n\nconst emailBody = `\n  <div style=\"font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5; color: #222;\">\n    <p>Hi ${name},</p>\n    <p>Here are your definitions from Wiktionary:</p>\n\n    ${blocks.join('<hr style=\"border:none; border-top:1px solid #ddd; margin:24px 0;\">')}\n  </div>\n`;\n\nreturn [\n  {\n    json: {\n      emailBody,\n      name,\n      email: original.body?.email ?? '',\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        48
+      ],
+      "id": "b3c8e64e-1589-4c0a-b8f7-18245934d76b",
+      "name": "Generate email body"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Obtain data').first().json.body.email }}",
+        "subject": "={{ $('Obtain data').first().json.body.name }}, here are your definitions from Wiktionary ",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        48
+      ],
+      "id": "50c2dacc-3bcc-4203-83b0-a4302199beda",
+      "name": "Send a message",
+      "webhookId": "1bf40009-03e4-4d49-bb95-ab38ac146cad",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "xA3JjM3g2PzgHq5O",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0cee06c0-9ac2-4cbd-8c9d-330895d44f03",
+              "name": "body.name",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "6fc01478-0dc0-40eb-b00a-365bd602c90b",
+              "name": "body.email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "3ed4e066-2846-45de-80f5-1207120ebb16",
+              "name": "body.words",
+              "value": "={{ $json.body.words }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -112,
+        48
+      ],
+      "id": "e03e140d-dbfa-43f9-9927-75be3ba13ea5",
+      "name": "Obtain data"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Please provide a name",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -384,
+        -432
+      ],
+      "id": "4bf9f032-3de1-4975-b69d-761e4da5492b",
+      "name": "Handle name error"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Please provide an email",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -384,
+        -272
+      ],
+      "id": "2205bc2f-ef52-45b9-b5d8-a887df3bd081",
+      "name": "Handle email error"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Please send an array of words in English like:\n[\"day\", \"night\", \"afternoon\"]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -384,
+        -112
+      ],
+      "id": "30f601cc-fb8d-4adc-bd2e-ef739ffb0f86",
+      "name": "Handle words error"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Words processed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -384,
+        48
+      ],
+      "id": "7f67b2a7-98d9-4856-9c9e-4275d9e41c22",
+      "name": "Correct processing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Handle input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Wiktionary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle input": {
+      "main": [
+        [
+          {
+            "node": "Handle name error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle email error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle words error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Correct processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wiktionary": {
+      "main": [
+        [
+          {
+            "node": "Process results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process results": {
+      "main": [
+        [
+          {
+            "node": "Generate email body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate email body": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtain data": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Correct processing": {
+      "main": [
+        [
+          {
+            "node": "Obtain data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b87f8542-d1e9-49de-88c8-4060263f0934",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1ddf0994f981b6466d085ea7e80446e590235da0ac13cb06ed37173d01f3d20d"
+  },
+  "id": "ry33hVureSvo20tn2Rp_A",
+  "tags": [
+    {
+      "name": "Coderhouse",
+      "id": "BwRKo1SX7SLVRmLJ",
+      "updatedAt": "2026-03-10T22:03:22.860Z",
+      "createdAt": "2026-03-10T22:03:22.860Z"
+    }
+  ]
+}
